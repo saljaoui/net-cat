@@ -14,13 +14,13 @@ type Client struct {
 }
 
 var (
-	clients = make(map[*Client]bool)
+	clients       = make(map[*Client]bool)
 	WelcomMessage = "Welcome to TCP-Chat!\n         _nnnn_\n        dGGGGMMb\n       @p~qp~~qMb\n       M|@||@) M|\n       @,----.JM|\n      JS^\\__/  qKL\n     dZP        qKRb\n    dZP          qKKb\n   fZP            SMMb\n   HZM            MMMM\n   FqM            MMMM\n __| \".        |\\dS\"qML\n |    `.       | `' \\Zq\n_)      \\.___.,|     .'\n\\____   )MMMMMP|   .'\n     `-'       `--'\n[ENTER YOUR NAME]: "
-	Names = make(map[string]bool)
+	Names         = make(map[string]bool)
 
 	clientsMux sync.Mutex
-
-	messages   []string
+	
+	messages []string
 )
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 		fmt.Println("The following error occurred", err)
 		return
 	}
-	fmt.Printf("Listening on the port %s\n",port)
+	fmt.Printf("Listening on the port %s\n", port)
 
 	for {
 		conn, err := ln.Accept()
@@ -48,6 +48,7 @@ func handleConnection(conn net.Conn) {
 	client := &Client{conn: conn}
 
 	conn.Write([]byte(WelcomMessage))
+
 	scanner := bufio.NewScanner(conn)
 	if scanner.Scan() {
 		client.Name = scanner.Text()
@@ -83,24 +84,18 @@ func handleConnection(conn net.Conn) {
 
 	clientsMux.Unlock()
 
-
 	broadcastMessage(fmt.Sprintf("%s has joined our chat...\n", client.Name), client)
 
-	currentTime := time.Now()
-	formattedTime := currentTime.Format("2006-01-02 15:04:05")
+	conn.Write([]byte(taimeName("", client.Name)))
+	for scanner.Scan() {
 
-	conn.Write([]byte(fmt.Sprintf("[%s][%s]: ", formattedTime, client.Name)))
-
-	for  scanner.Scan() {
-		
-		currentTime = time.Now()
-		formattedTime = currentTime.Format("2006-01-02 15:04:05")
-		
-		conn.Write([]byte(fmt.Sprintf("[%s][%s]: ", formattedTime, client.Name)))
+		conn.Write([]byte(taimeName("", client.Name)))
 
 		message := scanner.Text()
+		message = message+"\n"
 
-		broadcastMessage(fmt.Sprintf("[%s][%s]: %s\n", formattedTime, client.Name, message), client)
+		broadcastMessage(taimeName(message, client.Name), client)
+
 	}
 
 	clientsMux.Lock()
@@ -109,21 +104,22 @@ func handleConnection(conn net.Conn) {
 	delete(Names, client.Name)
 
 	broadcastMessage(fmt.Sprintf("%s has left the chat...\n", client.Name), client)
-	
-
 }
 
+func taimeName(message string, name string) string {
+	currentTime := time.Now()
+	formattedTime := currentTime.Format("2006-01-02 15:04:05")
+	return fmt.Sprintf("[%s][%s]: %s", formattedTime, name, message)
+}
 
 func broadcastMessage(message string, sender *Client) {
-	fmt.Print(message)
-	
 	messages = append(messages, message)
 
 	clientsMux.Lock()
 	defer clientsMux.Unlock()
 
 	for client := range clients {
-		if client != sender { 
+		if client != sender {
 			_, err := client.conn.Write([]byte(message))
 			if err != nil {
 				fmt.Printf("Error broadcasting to %s: %v\n", client.Name, err)
