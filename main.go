@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"log"
 	"net"
 )
 
@@ -47,8 +49,13 @@ func (s *Server) acceptLoop() {
 
 func (s *Server) readLoop(con net.Conn) {
 	defer con.Close()
+	r := bufio.NewReader(con)
+	
 	for {
-
+		msg, err := r.ReadString('\n')
+		if err != nil {
+			log.Fatal("error from reading")
+		}
 	}
 }
 
