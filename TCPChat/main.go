@@ -10,14 +10,16 @@ import (
 
 type Client struct {
 	conn net.Conn
-	name string
+	Name string
 }
 
 var (
-	clients    = make(map[*Client]bool)
-	name       = make(map[string]bool)
+	clients = make(map[*Client]bool)
+
+	Names = make(map[string]bool)
+
 	clientsMux sync.Mutex
-	messages []string
+	messages   []string
 )
 
 func main() {
@@ -27,7 +29,7 @@ func main() {
 		fmt.Println("The following error occurred", err)
 		return
 	}
-	fmt.Println("The listener object has been created:", ln)
+	fmt.Printf("Listening on the port %s\n",port)
 
 	for {
 		conn, err := ln.Accept()
@@ -47,73 +49,85 @@ func handleConnection(conn net.Conn) {
 	conn.Write([]byte("[ENTER YOUR NAME]: "))
 	scanner := bufio.NewScanner(conn)
 	if scanner.Scan() {
-		client.name = scanner.Text()
+		client.Name = scanner.Text()
 	} else {
-		return 
+		return
 	}
 
 	clientsMux.Lock()
 
 	clients[client] = true
-	if name[fmt.Sprint(client.name)] {
-		
+	if Names[fmt.Sprint(client.Name)] {
 		for {
 			conn.Write([]byte("already here------------------\n"))
 			conn.Write([]byte("[ENTER YOUR NAME]: "))
 			scanner = bufio.NewScanner(conn)
 			if scanner.Scan() {
-				client.name = scanner.Text()
+				client.Name = scanner.Text()
 			} else {
-				return 
+				return
 			}
-			if !name[fmt.Sprint(client.name)] {
+			if !Names[fmt.Sprint(client.Name)] {
+				Names[fmt.Sprint(client.Name)] = true
 				break
 			}
 		}
-		
 	} else {
-		name[fmt.Sprint(client.name)] = true
+		Names[fmt.Sprint(client.Name)] = true
 	}
 
 	for _, msg := range messages {
 		conn.Write([]byte(msg))
 	}
 
-
 	clientsMux.Unlock()
 
-	broadcastMessage(fmt.Sprintf("%s has joined our chat...\n", client.name), client)
+
+
+	broadcastMessage(fmt.Sprintf("\n%s has joined our chat...\n", client.Name), client)
+
+	currentTime := time.Now()
+	formattedTime := currentTime.Format("2006-01-02 15:04:05")
+
+	conn.Write([]byte(fmt.Sprintf("[%s][%s]: ", formattedTime, client.Name)))
 
 	for scanner.Scan() {
 		
-		currentTime := time.Now()
-		formattedTime := currentTime.Format("2006-01-02 15:04:05")
+		currentTime = time.Now()
+		formattedTime = currentTime.Format("2006-01-02 15:04:05")
 		
+		conn.Write([]byte(fmt.Sprintf("[%s][%s]: ", formattedTime, client.Name)))
+
 		message := scanner.Text()
-		broadcastMessage(fmt.Sprintf("[%s][%s]: %s\n",formattedTime, client.name, message), client)
+		broadcastMessage(fmt.Sprintf("[%s][%s]: %s\n", formattedTime, client.Name, message), client)
 	}
 
 	clientsMux.Lock()
 	delete(clients, client)
 	clientsMux.Unlock()
 
-	broadcastMessage(fmt.Sprintf("%s has left the chat...\n", client.name), client)
+	broadcastMessage(fmt.Sprintf("%s has left the chat...\n", client.Name), client)
+	delete(Names, client.Name)
+
 }
 
+
 func broadcastMessage(message string, sender *Client) {
-	fmt.Print(message) // Print message to server console
+	fmt.Print(message)
+	
 	messages = append(messages, message)
 
 	clientsMux.Lock()
 	defer clientsMux.Unlock()
 
 	for client := range clients {
-		if client != sender { // Don't send the message back to the sender
+		if client != sender { 
 			_, err := client.conn.Write([]byte(message))
 			if err != nil {
-				fmt.Printf("Error broadcasting to %s: %v\n", client.name, err)
+				fmt.Printf("Error broadcasting to %s: %v\n", client.Name, err)
 				client.conn.Close()
 				delete(clients, client)
+				
 			}
 		}
 	}
