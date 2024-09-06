@@ -4,41 +4,112 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"sync"
+)
+
+type Client struct {
+	conn net.Conn
+	name string
+}
+
+var (
+	clients    = make(map[*Client]bool)
+	name       = make(map[string]bool)
+	clientsMux sync.Mutex
+	messages []string
 )
 
 func main() {
-	port := "3000"
-
-	listener, err := net.Listen("tcp", ":"+port)
+	port := ":8080"
+	ln, err := net.Listen("tcp", port)
 	if err != nil {
-		fmt.Printf("Error starting server: %s\n", err)
+		fmt.Println("The following error occurred", err)
 		return
 	}
-	defer listener.Close()
-
-	fmt.Printf("Listening on port " + port + "...\n")
+	fmt.Println("The listener object has been created:", ln)
 
 	for {
-		conn, err := listener.Accept()
+		conn, err := ln.Accept()
 		if err != nil {
-			fmt.Printf("Error accepting connection: %s\n", err)
+			fmt.Println("Error accepting connection:", err)
 			continue
 		}
-		fmt.Println(conn)
-
 		go handleConnection(conn)
 	}
 }
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	// s := make([]byte, 1000)
-	fmt.Printf("Accepted connection from RemoteAddr %s\n", conn.RemoteAddr())
-	fmt.Printf("Accepted connection from LocalAddr %s\n", conn.LocalAddr())
-	data := bufio.NewReader(conn)
-	conn.Write([]byte("Enter your name: "))
-	name, _ := data.ReadString('\n')
-	name = name[:len(name)-1]
-	fmt.Println(name)
+
+	client := &Client{conn: conn}
+
+	conn.Write([]byte("[ENTER YOUR NAME]: "))
+	scanner := bufio.NewScanner(conn)
+	if scanner.Scan() {
+		client.name = scanner.Text()
+	} else {
+		return 
+	}
+
+	clientsMux.Lock()
+
+	clients[client] = true
+	if name[fmt.Sprint(client.name)] {
+		
+		for {
+			conn.Write([]byte("already here------------------\n"))
+			conn.Write([]byte("[ENTER YOUR NAME]: "))
+			scanner = bufio.NewScanner(conn)
+			if scanner.Scan() {
+				client.name = scanner.Text()
+			} else {
+				return 
+			}
+			if !name[fmt.Sprint(client.name)] {
+				break
+			}
+		}
+		
+	} else {
+		name[fmt.Sprint(client.name)] = true
+	}
 	
+	for _, msg := range messages {
+		conn.Write([]byte(msg))
+	}
+
+
+	clientsMux.Unlock()
+
+	broadcastMessage(fmt.Sprintf("%s has joined our chat...\n", client.name), client)
+
+	for scanner.Scan() {
+		message := scanner.Text()
+		broadcastMessage(fmt.Sprintf("%s: %s\n", client.name, message), client)
+	}
+
+	clientsMux.Lock()
+	delete(clients, client)
+	clientsMux.Unlock()
+
+	broadcastMessage(fmt.Sprintf("%s has left the chat...\n", client.name), client)
+}
+
+func broadcastMessage(message string, sender *Client) {
+	fmt.Print(message) // Print message to server console
+	messages = append(messages, message)
+
+	clientsMux.Lock()
+	defer clientsMux.Unlock()
+
+	for client := range clients {
+		if client != sender { // Don't send the message back to the sender
+			_, err := client.conn.Write([]byte(message))
+			if err != nil {
+				fmt.Printf("Error broadcasting to %s: %v\n", client.name, err)
+				client.conn.Close()
+				delete(clients, client)
+			}
+		}
+	}
 }
