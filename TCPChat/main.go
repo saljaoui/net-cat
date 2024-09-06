@@ -15,10 +15,11 @@ type Client struct {
 
 var (
 	clients = make(map[*Client]bool)
-
+	WelcomMessage = "Welcome to TCP-Chat!\n         _nnnn_\n        dGGGGMMb\n       @p~qp~~qMb\n       M|@||@) M|\n       @,----.JM|\n      JS^\\__/  qKL\n     dZP        qKRb\n    dZP          qKKb\n   fZP            SMMb\n   HZM            MMMM\n   FqM            MMMM\n __| \".        |\\dS\"qML\n |    `.       | `' \\Zq\n_)      \\.___.,|     .'\n\\____   )MMMMMP|   .'\n     `-'       `--'\n[ENTER YOUR NAME]: "
 	Names = make(map[string]bool)
 
 	clientsMux sync.Mutex
+
 	messages   []string
 )
 
@@ -46,7 +47,7 @@ func handleConnection(conn net.Conn) {
 
 	client := &Client{conn: conn}
 
-	conn.Write([]byte("[ENTER YOUR NAME]: "))
+	conn.Write([]byte(WelcomMessage))
 	scanner := bufio.NewScanner(conn)
 	if scanner.Scan() {
 		client.Name = scanner.Text()
@@ -75,7 +76,7 @@ func handleConnection(conn net.Conn) {
 	} else {
 		Names[fmt.Sprint(client.Name)] = true
 	}
-
+	defer conn.Close()
 	for _, msg := range messages {
 		conn.Write([]byte(msg))
 	}
@@ -83,15 +84,14 @@ func handleConnection(conn net.Conn) {
 	clientsMux.Unlock()
 
 
-
-	broadcastMessage(fmt.Sprintf("\n%s has joined our chat...\n", client.Name), client)
+	broadcastMessage(fmt.Sprintf("%s has joined our chat...\n", client.Name), client)
 
 	currentTime := time.Now()
 	formattedTime := currentTime.Format("2006-01-02 15:04:05")
 
 	conn.Write([]byte(fmt.Sprintf("[%s][%s]: ", formattedTime, client.Name)))
 
-	for scanner.Scan() {
+	for  scanner.Scan() {
 		
 		currentTime = time.Now()
 		formattedTime = currentTime.Format("2006-01-02 15:04:05")
@@ -99,15 +99,17 @@ func handleConnection(conn net.Conn) {
 		conn.Write([]byte(fmt.Sprintf("[%s][%s]: ", formattedTime, client.Name)))
 
 		message := scanner.Text()
+
 		broadcastMessage(fmt.Sprintf("[%s][%s]: %s\n", formattedTime, client.Name, message), client)
 	}
 
 	clientsMux.Lock()
 	delete(clients, client)
 	clientsMux.Unlock()
+	delete(Names, client.Name)
 
 	broadcastMessage(fmt.Sprintf("%s has left the chat...\n", client.Name), client)
-	delete(Names, client.Name)
+	
 
 }
 
@@ -127,7 +129,6 @@ func broadcastMessage(message string, sender *Client) {
 				fmt.Printf("Error broadcasting to %s: %v\n", client.Name, err)
 				client.conn.Close()
 				delete(clients, client)
-				
 			}
 		}
 	}
