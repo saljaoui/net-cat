@@ -61,7 +61,7 @@ func handleConnection(conn net.Conn) {
 	clients[client] = true
 	if Names[fmt.Sprint(client.Name)] {
 		for {
-			conn.Write([]byte("already here------------------\n"))
+			conn.Write([]byte("Name already taken. Please choose another name.\n"))
 			conn.Write([]byte("[ENTER YOUR NAME]: "))
 			scanner = bufio.NewScanner(conn)
 			if scanner.Scan() {
@@ -77,6 +77,7 @@ func handleConnection(conn net.Conn) {
 	} else {
 		Names[fmt.Sprint(client.Name)] = true
 	}
+
 	defer conn.Close()
 	for _, msg := range messages {
 		conn.Write([]byte(msg))
@@ -84,17 +85,16 @@ func handleConnection(conn net.Conn) {
 
 	clientsMux.Unlock()
 
-	broadcastMessage(fmt.Sprintf("%s has joined our chat...\n", client.Name), client)
+	broadcastMessage(fmt.Sprintf("\n%s has joined our chat...", client.Name), client)
 
-	conn.Write([]byte(taimeName("", client.Name)))
+	conn.Write([]byte(formatMessage("", client.Name)))
 	for scanner.Scan() {
 
-		conn.Write([]byte(taimeName("", client.Name)))
+		conn.Write([]byte(formatMessage("", client.Name)))
 
 		message := scanner.Text()
-		message = message+"\n"
-
-		broadcastMessage(taimeName(message, client.Name), client)
+		
+		broadcastMessage(formatMessage(message, client.Name), client)
 
 	}
 
@@ -103,16 +103,17 @@ func handleConnection(conn net.Conn) {
 	clientsMux.Unlock()
 	delete(Names, client.Name)
 
-	broadcastMessage(fmt.Sprintf("%s has left the chat...\n", client.Name), client)
+	broadcastMessage(fmt.Sprintf("%s has left the chat...", client.Name), client)
 }
 
-func taimeName(message string, name string) string {
+func formatMessage(message string, name string) string {
 	currentTime := time.Now()
 	formattedTime := currentTime.Format("2006-01-02 15:04:05")
 	return fmt.Sprintf("[%s][%s]: %s", formattedTime, name, message)
 }
 
 func broadcastMessage(message string, sender *Client) {
+	message = message+"\n"
 	messages = append(messages, message)
 
 	clientsMux.Lock()
