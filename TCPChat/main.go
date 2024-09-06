@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 )
 
 type Client struct {
@@ -73,7 +74,7 @@ func handleConnection(conn net.Conn) {
 	} else {
 		name[fmt.Sprint(client.name)] = true
 	}
-	
+
 	for _, msg := range messages {
 		conn.Write([]byte(msg))
 	}
@@ -84,8 +85,12 @@ func handleConnection(conn net.Conn) {
 	broadcastMessage(fmt.Sprintf("%s has joined our chat...\n", client.name), client)
 
 	for scanner.Scan() {
+		
+		currentTime := time.Now()
+		formattedTime := currentTime.Format("2006-01-02 15:04:05")
+		
 		message := scanner.Text()
-		broadcastMessage(fmt.Sprintf("%s: %s\n", client.name, message), client)
+		broadcastMessage(fmt.Sprintf("[%s][%s]: %s\n",formattedTime, client.name, message), client)
 	}
 
 	clientsMux.Lock()
