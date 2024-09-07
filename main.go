@@ -13,12 +13,13 @@ type Server struct {
 	ListenAddr string
 	ln         net.Listener
 	clients    map[*Client]string
-	users	map[string]bool
+	users      map[string]bool
 }
 
-var allMessages string
-var WelcomMessage = "Welcome to TCP-Chat!\n         _nnnn_\n        dGGGGMMb\n       @p~qp~~qMb\n       M|@||@) M|\n       @,----.JM|\n      JS^\\__/  qKL\n     dZP        qKRb\n    dZP          qKKb\n   fZP            SMMb\n   HZM            MMMM\n   FqM            MMMM\n __| \".        |\\dS\"qML\n |    `.       | `' \\Zq\n_)      \\.___.,|     .'\n\\____   )MMMMMP|   .'\n     `-'       `--'\n[ENTER YOUR NAME]: "
-
+var (
+	allMessages   string
+	WelcomMessage = "Welcome to TCP-Chat!\n         _nnnn_\n        dGGGGMMb\n       @p~qp~~qMb\n       M|@||@) M|\n       @,----.JM|\n      JS^\\__/  qKL\n     dZP        qKRb\n    dZP          qKKb\n   fZP            SMMb\n   HZM            MMMM\n   FqM            MMMM\n __| \".        |\\dS\"qML\n |    `.       | `' \\Zq\n_)      \\.___.,|     .'\n\\____   )MMMMMP|   .'\n     `-'       `--'\n[ENTER YOUR NAME]: "
+)
 
 type Client struct {
 	conn net.Conn
@@ -29,7 +30,7 @@ func NewServer(ListenAddr string) *Server {
 	return &Server{
 		ListenAddr: ListenAddr,
 		clients:    make(map[*Client]string),
-		users: make(map[string]bool),
+		users:      make(map[string]bool),
 	}
 }
 
@@ -63,20 +64,20 @@ func (s *Server) handleClient(client *Client) {
 		fmt.Println("Error reading client name:", err)
 		return
 	}
+
 	client.Name = strings.TrimSpace(name)
 
-	if s.users[client.Name] {
+	if s.users[client.Name] || !validMessage(name) {
 		for {
 			client.conn.Write([]byte("Name already taken. Please choose another name.\n"))
 			client.conn.Write([]byte("[ENTER YOUR NAME]: "))
 			name, _ = bufio.NewReader(client.conn).ReadString('\n')
 			client.Name = strings.TrimSpace(name)
-			if !s.users[client.Name] {
+			if !s.users[client.Name] && validMessage(name) {
 				s.users[client.Name] = true
 				break
 			}
 		}
-
 	} else {
 		s.users[client.Name] = true
 	}
@@ -98,12 +99,18 @@ func (s *Server) handleClient(client *Client) {
 			delete(s.users, client.Name)
 			return
 		}
-		s.broadcastMessage(formatMessage(msg, client.Name), client)
+
+		if !validMessage(msg) {
+			client.conn.Write([]byte(formatMessage("", client.Name)))
+		} else {
+			s.broadcastMessage(formatMessage(msg, client.Name), client)
+		}
+
 	}
 }
 
-
 func (s *Server) broadcastMessage(msg string, sender *Client) {
+	fmt.Println(msg)
 	saveMessages(msg)
 
 	msg = "\n" + msg
@@ -115,16 +122,15 @@ func (s *Server) broadcastMessage(msg string, sender *Client) {
 				client.conn.Close()
 				delete(s.clients, client)
 			}
-
 		}
 		client.conn.Write([]byte(formatMessage("", s.clients[client])))
 	}
 }
 
 func (s *Server) disconnectClient(client *Client) {
-    client.conn.Close()
-    delete(s.clients, client)
-    s.broadcastMessage(fmt.Sprintf("%s has left the chat\n", client.Name), nil)
+	client.conn.Close()
+	delete(s.clients, client)
+	s.broadcastMessage(fmt.Sprintf("%s has left the chat\n", client.Name), nil)
 }
 
 func formatMessage(message string, name string) string {
@@ -135,6 +141,16 @@ func formatMessage(message string, name string) string {
 
 func saveMessages(msg string) {
 	allMessages += msg
+}
+
+func validMessage(msg string) bool {
+	for _, s := range msg {
+		fmt.Println(s)
+		if s > 32 && s < 127 {
+			return true
+		}
+	}
+	return false
 }
 
 func main() {
