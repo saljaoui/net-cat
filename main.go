@@ -13,9 +13,12 @@ type Server struct {
 	ListenAddr string
 	ln         net.Listener
 	clients    map[*Client]string
+	users	map[string]bool
 }
 
+var allMessages string
 var WelcomMessage = "Welcome to TCP-Chat!\n         _nnnn_\n        dGGGGMMb\n       @p~qp~~qMb\n       M|@||@) M|\n       @,----.JM|\n      JS^\\__/  qKL\n     dZP        qKRb\n    dZP          qKKb\n   fZP            SMMb\n   HZM            MMMM\n   FqM            MMMM\n __| \".        |\\dS\"qML\n |    `.       | `' \\Zq\n_)      \\.___.,|     .'\n\\____   )MMMMMP|   .'\n     `-'       `--'\n[ENTER YOUR NAME]: "
+
 
 type Client struct {
 	conn net.Conn
@@ -26,6 +29,7 @@ func NewServer(ListenAddr string) *Server {
 	return &Server{
 		ListenAddr: ListenAddr,
 		clients:    make(map[*Client]string),
+		users: make(map[string]bool),
 	}
 }
 
@@ -53,37 +57,42 @@ func (s *Server) acceptLoop() {
 }
 
 func (s *Server) handleClient(client *Client) {
-	
 	client.conn.Write([]byte(WelcomMessage))
 	name, err := bufio.NewReader(client.conn).ReadString('\n')
 	if err != nil {
 		fmt.Println("Error reading client name:", err)
 		return
 	}
-	
+
 	client.Name = strings.TrimSpace(name)
 	s.clients[client] = client.Name
 
-	s.broadcastMessage(fmt.Sprintf("\n%s has joined the chat\n", client.Name), client, )
+
+
+
+	client.conn.Write([]byte(allMessages))
+
+	s.broadcastMessage(fmt.Sprintf("%s has joined the chat\n", client.Name), client)
 
 	r := bufio.NewReader(client.conn)
-	fmt.Println(s.clients)
-
-	
 
 	for {
 
 		msg, err := r.ReadString('\n')
 		if err != nil {
 			fmt.Printf("Error reading from client %s: %v\n", client.Name, err)
+			s.disconnectClient(client)
 			return
 		}
 		s.broadcastMessage(formatMessage(msg, client.Name), client)
 	}
 }
 
+
 func (s *Server) broadcastMessage(msg string, sender *Client) {
-	msg = "\n"+msg
+	saveMessages(msg)
+
+	msg = "\n" + msg
 	for client := range s.clients {
 		if client != sender {
 			_, err := client.conn.Write([]byte(msg))
@@ -92,12 +101,17 @@ func (s *Server) broadcastMessage(msg string, sender *Client) {
 				client.conn.Close()
 				delete(s.clients, client)
 			}
-			
+
 		}
-		client.conn.Write([]byte(formatMessage("",s.clients[client])))
+		client.conn.Write([]byte(formatMessage("", s.clients[client])))
 	}
 }
 
+func (s *Server) disconnectClient(client *Client) {
+    client.conn.Close()
+    delete(s.clients, client)
+    s.broadcastMessage(fmt.Sprintf("%s has left the chat\n", client.Name), nil)
+}
 
 func formatMessage(message string, name string) string {
 	currentTime := time.Now()
@@ -105,10 +119,15 @@ func formatMessage(message string, name string) string {
 	return fmt.Sprintf("[%s][%s]: %s", formattedTime, name, message)
 }
 
+func saveMessages(msg string) {
+	allMessages += msg
+}
+
 func main() {
-	port:=":3000"
+	port := ":3000"
+	fmt.Println("Server started on " + port)
+
 	server := NewServer(port)
-	fmt.Println("Server started on "+port)
 	err := server.Start()
 	if err != nil {
 		log.Fatal("Failed to start server:", err)
