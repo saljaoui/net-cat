@@ -61,6 +61,7 @@ func (s *Server) acceptLoop() {
 }
 
 func (s *Server) handleClient(client *Client) {
+	defer client.conn.Close()
 	client.conn.Write([]byte(WelcomMessage))
 	name, err := bufio.NewReader(client.conn).ReadString('\n')
 	if err != nil {
