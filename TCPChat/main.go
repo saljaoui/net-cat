@@ -178,7 +178,7 @@ func main() {
 		port = ":"+ os.Args[1]
 	}
 	
-	fmt.Println("Server started on " + port)
+	fmt.Println("Listening on the port " + port)
 	server := NewServer(port)
 	err := server.Start()
 	if err != nil {
