@@ -62,17 +62,18 @@ func (s *Server) handleClient(client *Client) {
 	}
 	
 	client.Name = strings.TrimSpace(name)
-	s.clients[client] = name
+	s.clients[client] = client.Name
 
 	s.broadcastMessage(fmt.Sprintf("\n%s has joined the chat\n", client.Name), client, )
 
 	r := bufio.NewReader(client.conn)
-	// var ok bool 
+	fmt.Println(s.clients)
+
+	
+
 	for {
-		client.conn.Write([]byte(formatMessage("",client.Name)))
+
 		msg, err := r.ReadString('\n')
-		// fmt.Println(ok)
-		// ok = true
 		if err != nil {
 			fmt.Printf("Error reading from client %s: %v\n", client.Name, err)
 			return
@@ -91,7 +92,9 @@ func (s *Server) broadcastMessage(msg string, sender *Client) {
 				client.conn.Close()
 				delete(s.clients, client)
 			}
+			
 		}
+		client.conn.Write([]byte(formatMessage("",s.clients[client])))
 	}
 }
 
