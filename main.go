@@ -63,12 +63,25 @@ func (s *Server) handleClient(client *Client) {
 		fmt.Println("Error reading client name:", err)
 		return
 	}
-
 	client.Name = strings.TrimSpace(name)
+
+	if s.users[client.Name] {
+		for {
+			client.conn.Write([]byte("Name already taken. Please choose another name.\n"))
+			client.conn.Write([]byte("[ENTER YOUR NAME]: "))
+			name, _ = bufio.NewReader(client.conn).ReadString('\n')
+			client.Name = strings.TrimSpace(name)
+			if !s.users[client.Name] {
+				s.users[client.Name] = true
+				break
+			}
+		}
+
+	} else {
+		s.users[client.Name] = true
+	}
+
 	s.clients[client] = client.Name
-
-
-
 
 	client.conn.Write([]byte(allMessages))
 
@@ -82,6 +95,7 @@ func (s *Server) handleClient(client *Client) {
 		if err != nil {
 			fmt.Printf("Error reading from client %s: %v\n", client.Name, err)
 			s.disconnectClient(client)
+			delete(s.users, client.Name)
 			return
 		}
 		s.broadcastMessage(formatMessage(msg, client.Name), client)
