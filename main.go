@@ -83,7 +83,7 @@ func (s *Server) handleClient(client *Client) {
 }
 
 func (s *Server) broadcastMessage(msg string, sender *Client) {
-
+	msg = "\n"+msg
 	for client := range s.clients {
 		if client != sender {
 			_, err := client.conn.Write([]byte(msg))
