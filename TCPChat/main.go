@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -168,7 +169,15 @@ func validMessage(msg string) bool {
 }
 
 func main() {
-	port := ":3000"
+	port := ":8989"
+	if len(os.Args) > 2 {
+		fmt.Println("[USAGE]: ./TCPChat $port")
+		return
+	}
+	if len(os.Args) == 2 {
+		port = ":"+ os.Args[1]
+	}
+	
 	fmt.Println("Server started on " + port)
 	server := NewServer(port)
 	err := server.Start()
