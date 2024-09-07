@@ -67,10 +67,12 @@ func (s *Server) handleClient(client *Client) {
 	s.broadcastMessage(fmt.Sprintf("\n%s has joined the chat\n", client.Name), client, )
 
 	r := bufio.NewReader(client.conn)
-
+	// var ok bool 
 	for {
 		client.conn.Write([]byte(formatMessage("",client.Name)))
 		msg, err := r.ReadString('\n')
+		// fmt.Println(ok)
+		// ok = true
 		if err != nil {
 			fmt.Printf("Error reading from client %s: %v\n", client.Name, err)
 			return
