@@ -53,20 +53,23 @@ func (s *Server) acceptLoop() {
 }
 
 func (s *Server) handleClient(client *Client) {
-	// Ask for the client's name
+	
 	client.conn.Write([]byte(WelcomMessage))
 	name, err := bufio.NewReader(client.conn).ReadString('\n')
 	if err != nil {
 		fmt.Println("Error reading client name:", err)
 		return
 	}
+	
 	client.Name = strings.TrimSpace(name)
 	s.clients[client] = name
 
-	s.broadcastMessage(fmt.Sprintf("%s has joined the chat\n", client.Name), client)
+	s.broadcastMessage(fmt.Sprintf("\n%s has joined the chat\n", client.Name), client, )
 
 	r := bufio.NewReader(client.conn)
+
 	for {
+		client.conn.Write([]byte(formatMessage("",client.Name)))
 		msg, err := r.ReadString('\n')
 		if err != nil {
 			fmt.Printf("Error reading from client %s: %v\n", client.Name, err)
@@ -77,6 +80,7 @@ func (s *Server) handleClient(client *Client) {
 }
 
 func (s *Server) broadcastMessage(msg string, sender *Client) {
+
 	for client := range s.clients {
 		if client != sender {
 			_, err := client.conn.Write([]byte(msg))
@@ -88,6 +92,7 @@ func (s *Server) broadcastMessage(msg string, sender *Client) {
 		}
 	}
 }
+
 
 func formatMessage(message string, name string) string {
 	currentTime := time.Now()
