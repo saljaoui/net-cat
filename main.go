@@ -69,7 +69,7 @@ func (s *Server) handleClient(client *Client) {
 
 	if s.users[client.Name] || !validMessage(name) {
 		for {
-			client.conn.Write([]byte("Name already taken. Please choose another name.\n"))
+			client.conn.Write([]byte("Please choose another name.\n"))
 			client.conn.Write([]byte("[ENTER YOUR NAME]: "))
 			name, _ = bufio.NewReader(client.conn).ReadString('\n')
 			client.Name = strings.TrimSpace(name)
@@ -110,10 +110,9 @@ func (s *Server) handleClient(client *Client) {
 }
 
 func (s *Server) broadcastMessage(msg string, sender *Client) {
-	fmt.Println(msg)
 	saveMessages(msg)
-
 	msg = "\n" + msg
+
 	for client := range s.clients {
 		if client != sender {
 			_, err := client.conn.Write([]byte(msg))
@@ -145,7 +144,6 @@ func saveMessages(msg string) {
 
 func validMessage(msg string) bool {
 	for _, s := range msg {
-		fmt.Println(s)
 		if s > 32 && s < 127 {
 			return true
 		}
